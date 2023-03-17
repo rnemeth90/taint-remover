@@ -19,43 +19,55 @@ roleRef:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: taintremover
+  name: dnsfixer
   namespace: default
   labels:
-    app: taintremover
+    app: dnsfixer
 spec:
   selector:
     matchLabels:
-      app: taintremvoer
+      app: dnsfixer
   template:
     metadata:
       labels:
-        app: taintremvoer
+        app: dnsfixer
     spec:
       serviceAccount: taintmanager
       tolerations:
-      - key: kubernetes.azure.com/scalesetpriority
-        operator: Exists
+      - key: "nodepool"
+        value: "new"
+        operator: "Equal"
         effect: NoSchedule
+      securityContext:
+        windowsOptions:
+          hostProcess: true
+          runAsUserName: "NT AUTHORITY\\SYSTEM"
+      hostNetwork: true
       nodeSelector:
         kubernetes.io/os: windows
       initContainers:
+      - name: addregkey
+        image: mcr.microsoft.com/windows/servercore:ltsc2019
+        args:
+        - powershell.exe
+        - -Command
+        - "New-ItemProperty -Path \"HKLM:SYSTEM\\CurrentControlSet\\Services\\hns\\State\" -Name \"DNSMaximumTTL\" -Value 30  -PropertyType \"DWORD\"; Restart-Service hns; Restart-Service kubeproxy; $c=0; while($c -lt 1){write-host \"sleeping for 30 seconds\"; Start-Sleep -Seconds 30; $c += 1}; exit 0"
+        imagePullPolicy: IfNotPresent
       - name: taintremover
         image: ghcr.io/markjgardner/taintremover:0.5.47
         resources:
-          limits:
-            memory: 200Mi
-          requests:
-            cpu: 100m
-            memory: 200Mi
-        env:
-        - name: NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: TAINT
-          value: kubernetes.azure.com/scalesetpriority=spot:NoSchedule
-      containers:
-        - name: pause
-          image: k8s.gcr.io/pause:3.5
-      terminationGracePeriodSeconds: 30
+          limits: 
+            memory: 200Mi 
+          requests: 
+            cpu: 100m 
+            memory: 200Mi 
+        env: 
+        - name: NODE_NAME 
+          valueFrom: 
+            fieldRef: 
+              fieldPath: spec.nodeName 
+        - name: TAINT 
+          value: nodepool=new:NoSchedule 
+      containers: 
+      - name: pause 
+        image: k8s.gcr.io/pause:3.5 
