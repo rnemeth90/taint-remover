@@ -1,4 +1,4 @@
-ARG BASE_TAG=6.0
+ARG BASE_TAG=7.0
 
 # https://hub.docker.com/_/microsoft-dotnet
 FROM mcr.microsoft.com/dotnet/sdk:$BASE_TAG AS build
