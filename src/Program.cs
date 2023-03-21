@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using k8s.Authentication;
+using System.IO;
 
 IHost host = null;
 
@@ -12,7 +14,8 @@ try {
     {
       services.AddHostedService<Worker>();
       services.AddSingleton((s) => {
-        //modified for running in a windows HPC
+        // modified for running in a windows HPC on containerd 1.6 
+        // https://kubernetes.io/docs/tasks/configure-pod-container/create-hostprocess-pod/#volume-mounts
         var ServiceAccountPath = Path.Combine(Environment.GetEnvironmentVariable("CONTAINER_SANDBOX_MOUNT_POINT"), "var", "run", "secrets", "kubernetes.io", "serviceaccount");
         var rootCAFile = Path.Combine(ServiceAccountPath, "ca.crt");
         var namespaceFile = Path.Combine(ServiceAccountPath, "namespace");
@@ -25,7 +28,7 @@ try {
             TokenProvider = tokenFile,
             SslCaCerts = CertUtils.LoadPemFileCert(rootCAFile),
         };
-        config.Namespace = FileSystem.Current.ReadAllText(namespaceFile);
+        config.Namespace = File.ReadAllText(namespaceFile);
         return new Kubernetes(config);
       });
     })
