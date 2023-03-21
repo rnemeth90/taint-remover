@@ -12,7 +12,20 @@ try {
     {
       services.AddHostedService<Worker>();
       services.AddSingleton((s) => {
-        var config = KubernetesClientConfiguration.BuildDefaultConfig();
+        //modified for running in a windows HPC
+        var ServiceAccountPath = Path.Combine(Environment.GetEnvironmentVariable("CONTAINER_SANDBOX_MOUNT_POINT"), "var", "run", "secrets", "kubernetes.io", "serviceaccount");
+        var rootCAFile = Path.Combine(ServiceAccountPath, "ca.crt");
+        var namespaceFile = Path.Combine(ServiceAccountPath, "namespace");
+        var tokenFile = new TokenFileAuth(Path.Combine(ServiceAccountPath, "token"));
+        var host = Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST");
+        var port = Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_PORT");
+        var config = new KubernetesClientConfiguration
+        {
+            Host = new UriBuilder("https", host, Convert.ToInt32(port)).ToString(),
+            TokenProvider = tokenFile,
+            SslCaCerts = CertUtils.LoadPemFileCert(rootCAFile),
+        };
+        config.Namespace = FileSystem.Current.ReadAllText(namespaceFile);
         return new Kubernetes(config);
       });
     })
